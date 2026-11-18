@@ -1,0 +1,47 @@
+transmitting node
+
+#include <Arduino.h>
+#include <SPI.h>
+#include <RadioLib.h>
+
+#define LORA_SCK 12
+#define LORA_MISO 13
+#define LORA_MOSI 11
+#define LORA_CS 10
+#define LORA_RESET 9
+#define LORA_BUSY 8
+#define LORA_DIO1 18
+#define LORA_RXEN 17
+#define LORA_TXEN 16
+
+#define FREQ_MHZ 915.0   // US band; use 868.0 in the EU
+
+SX1262 radio = new Module(LORA_CS, LORA_DIO1, LORA_RESET, LORA_BUSY, SPI);
+
+int counter = 0;
+
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+
+  SPI.begin(LORA_SCK, LORA_MISO, LORA_MOSI, LORA_CS);
+  radio.setRfSwitchPins(LORA_RXEN, LORA_TXEN);
+
+  // tcxoVoltage = 0 because this module uses a plain crystal
+  int state = radio.begin(FREQ_MHZ, 125.0, 9, 7, 0x12, 14, 8, 1.8);
+  if (state == RADIOLIB_ERR_NONE) {
+    Serial.println("Radio init OK");
+  } else {
+    Serial.print("Radio init failed, code ");
+    Serial.println(state);
+    while (true) delay(1000);
+  }
+}
+
+void loop() {
+  String msg = "Connection stable, fire #" + String(counter++);
+  Serial.print("Sending: " + msg + " ... ");
+  int state = radio.transmit(msg);
+  Serial.println(state == RADIOLIB_ERR_NONE ? "ok" : "error " + String(state));
+  delay(2500);
+}
