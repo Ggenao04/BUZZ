@@ -1,0 +1,60 @@
+#include <Arduino.h>
+#include <SPI.h>
+#include <RadioLib.h>
+
+// ---- BOARD'S WIRING ----
+#define LORA_SCK 12
+#define LORA_MISO 13
+#define LORA_MOSI 11
+#define LORA_CS 10
+#define LORA_RESET 9
+#define LORA_BUSY 8
+#define LORA_DIO1 18
+#define LORA_RXEN 17
+#define LORA_TXEN 16
+// --------------------------------------------------
+
+#define FREQ_MHZ 915.0
+
+SX1262 radio = new Module(LORA_CS, LORA_DIO1, LORA_RESET, LORA_BUSY, SPI);
+
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+
+  SPI.begin(LORA_SCK, LORA_MISO, LORA_MOSI, LORA_CS);
+  radio.setRfSwitchPins(LORA_RXEN, LORA_TXEN);
+
+  // Must match the transmitter: 915 MHz, 125 kHz BW, SF9, CR 4/7, sync 0x12
+  // Last argument is the TCXO voltage (1.8, the value that fixed init earlier)
+  int state = radio.begin(FREQ_MHZ, 125.0, 9, 7, 0x12, 14, 8, 1.8);
+  if (state == RADIOLIB_ERR_NONE) {
+    Serial.println("Radio init OK, listening...");
+  } else {
+    Serial.print("Radio init failed, code ");
+    Serial.println(state);
+    while (true) delay(1000);
+  }
+}
+
+void loop() {
+  String msg;
+  int state = radio.receive(msg);
+
+  if (state == RADIOLIB_ERR_NONE) {
+    Serial.print("Received: ");
+    Serial.print(msg);
+    Serial.print("  RSSI: ");
+    Serial.print(radio.getRSSI());
+    Serial.print(" dBm  SNR: ");
+    Serial.print(radio.getSNR());
+    Serial.println(" dB");
+  } else if (state == RADIOLIB_ERR_CRC_MISMATCH) {
+    Serial.println("Packet received but corrupted (CRC error)");
+  } else if (state == RADIOLIB_ERR_RX_TIMEOUT) {
+    Serial.println("... listening (no packet)");
+  } else {
+    Serial.print("Receive error, code ");
+    Serial.println(state);
+  }
+}
